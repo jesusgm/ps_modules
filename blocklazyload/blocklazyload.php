@@ -31,6 +31,8 @@
       Configuration::updateValue('excludeselector', '.bx-viewport img');
       Configuration::updateValue('trigger_event', '');
       Configuration::updateValue('effect', 'fadeIn');
+      Configuration::updateValue('threshold', '0');
+      Configuration::updateValue('timeout', '0');
 
       return true;
     }
@@ -43,6 +45,8 @@
       Configuration::deleteByName('excludeselector');
       Configuration::deleteByName('trigger_event');
       Configuration::deleteByName('effect');
+      Configuration::deleteByName('threshold');
+      Configuration::deleteByName('timeout');
 
       return true;
     }
@@ -53,6 +57,8 @@
         'img_exclude_selector' => Configuration::get('excludeselector'),
         'lz_event' => Configuration::get('trigger_event') ? Configuration::get('trigger_event'): '',
         'lz_effect' => Configuration::get('effect') ? Configuration::get('effect') : '',
+        'lz_threshold' => Configuration::get('threshold') ? Configuration::get('threshold') : '0',
+        'lz_timeout' => Configuration::get('timeout') ? Configuration::get('timeout') : '0',
         'module_lazy_path' => $this->_path
       ));
       $this->context->controller->addJS(($this->_path).'views/js/jquery.lazyload.min.js');
@@ -67,6 +73,8 @@
             $excludeselector = strval(Tools::getValue('excludeselector'));
             $trigger_event = strval(Tools::getValue('trigger_event'));
             $effect = strval(Tools::getValue('effect'));
+            $threshold = strval(Tools::getValue('threshold'));
+            $timeout = strval(Tools::getValue('timeout'));
             if (!$selector
               || empty($selector)
               || !Validate::isGenericName($selector)
@@ -79,6 +87,8 @@
                 Configuration::updateValue('excludeselector', $excludeselector);
                 Configuration::updateValue('trigger_event', $trigger_event);
                 Configuration::updateValue('effect', $effect);
+                Configuration::updateValue('threshold', $threshold ? $threshold : 0);
+                Configuration::updateValue('timeout', $timeout ? $timeout : 0);
 
                 $output .= $this->displayConfirmation($this->l('Settings updated'));
             }
@@ -104,10 +114,6 @@
             'id_option' => 'click',
             'name' => 'Click'
           ),
-          array(
-            'id_option' => 'sporty',
-            'name' => 'Sporty'
-          ),
         );
 
         $effects = array(
@@ -118,10 +124,6 @@
           array(
             'id_option' => 'fadeIn',
             'name' => 'fadeIn'
-          ),
-          array(
-            'id_option' => 'easeInElastic',
-            'name' => 'easeInElastic'
           )
         );
 
@@ -139,24 +141,24 @@
                   'required' => true
                 ),
                 array(
+                  'type' => 'textarea',
+                  'label' => $this->l('Selector de las imágenes a excluir'),
+                  'name' => 'excludeselector',
+                  'hint' => 'Introduce los selectores para jQuery separados por comas',
+                  'required' => false
+                ),
+                array(
                   'type' => 'text',
                   'label' => $this->l('Threshold'),
                   'name' => 'threshold',
-                  'hint' => 'Espacio para que se carguen las imágenes antes de entrar en el viewport',
+                  'hint' => 'Espacio (en px) para que se carguen las imágenes antes de entrar en el viewport',
                   'required' => false
                 ),
                 array(
                   'type' => 'text',
                   'label' => $this->l('Timeout'),
-                  'name' => 'timeour',
-                  'hint' => 'Especifica un timeout despues del cual se cargan las imágenes',
-                  'required' => false
-                ),
-                array(
-                  'type' => 'textarea',
-                  'label' => $this->l('Selector de las imágenes a excluir'),
-                  'name' => 'excludeselector',
-                  'hint' => 'Introduce los selectores para jQuery separados por comas',
+                  'name' => 'timeout',
+                  'hint' => 'Especifica un timeout (en milisegundos) despues del cual se cargan TODAS las imágenes',
                   'required' => false
                 ),
                 array(
@@ -225,6 +227,8 @@
         $helper->fields_value['excludeselector'] = Configuration::get('excludeselector');
         $helper->fields_value['trigger_event'] = Configuration::get('trigger_event');
         $helper->fields_value['effect'] = Configuration::get('effect');
+        $helper->fields_value['threshold'] = Configuration::get('threshold');
+        $helper->fields_value['timeout'] = Configuration::get('timeout');
 
         return $helper->generateForm($fields_form);
     }

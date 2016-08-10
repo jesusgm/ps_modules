@@ -29,6 +29,7 @@
 
       Configuration::updateValue('selector', 'img');
       Configuration::updateValue('excludeselector', '.bx-viewport img');
+      Configuration::updateValue('selector', 'auto');
 
       return true;
     }
@@ -39,6 +40,7 @@
 
       Configuration::deleteByName('selector');
       Configuration::deleteByName('excludeselector');
+      Configuration::deleteByName('modo');
 
       return true;
     }
@@ -47,6 +49,7 @@
       Media::addJSDef(array(
         'img_selector' => Configuration::get('selector'),
         'img_exclude_selector' => Configuration::get('excludeselector'),
+        'modo' => Configuration::get('modo'),
         'module_lazy_path' => $this->_path
       ));
       $this->context->controller->addJS(($this->_path).'views/js/jquery.lazyload.min.js');
@@ -54,11 +57,12 @@
     }
 
     public function getContent(){
-        $output = null;
+        $output = $this->context->smarty->fetch($this->local_path.'views/templates/admin/admin.tpl');
 
         if (Tools::isSubmit('submit'.$this->name)){
             $selector = strval(Tools::getValue('selector'));
             $excludeselector = strval(Tools::getValue('excludeselector'));
+            $modo = strval(Tools::getValue('modo'));
             if (!$selector
               || empty($selector)
               || !Validate::isGenericName($selector)
@@ -69,10 +73,12 @@
             {
                 Configuration::updateValue('selector', $selector);
                 Configuration::updateValue('excludeselector', $excludeselector);
+                Configuration::updateValue('modo', $modo);
 
                 $output .= $this->displayConfirmation($this->l('Settings updated'));
             }
         }
+
         return $output.$this->displayForm();
     }
 
@@ -113,6 +119,25 @@
                 'title' => $this->l('Configuración'),
             ),
             'input' => array(
+                array(
+                  'type' =>'radio',
+                  'label' => 'Modo',
+                  'name' => 'modo',
+                	'values' => array(
+                      array(
+                    		'id' => 'auto',
+                    		'value' => 'auto',
+                    		'label' => $this->l('Auto')
+                  	  ),
+                  	  array(
+                    		'id' => 'normal',
+                    		'value' => 'normal',
+                    		'label' => $this->l('Normal')
+                  	  )
+                	  ),
+                	'is_bool' => true,
+                	 'required' => true
+                ),
                 array(
                   'type' => 'textarea',
                   'label' => $this->l('Selector de imágenes a aplicar lazyload'),
@@ -167,6 +192,7 @@
         // Load current value
         $helper->fields_value['selector'] = Configuration::get('selector');
         $helper->fields_value['excludeselector'] = Configuration::get('excludeselector');
+        $helper->fields_value['modo'] = Configuration::get('modo');
 
         return $helper->generateForm($fields_form);
     }

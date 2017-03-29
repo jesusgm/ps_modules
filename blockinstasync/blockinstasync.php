@@ -50,11 +50,6 @@
 
             if (Tools::isSubmit('submit'.$this->name)){
                 $access_token = Tools::getValue('BLOCKINSTASYNC_ACCESS_TOKEN');
-                $photo_count = Tools::getValue('BLOCKINSTASYNC_PHOTO_COUNT');
-
-                if(!empty($photo_count)){
-                    Configuration::updateValue('BLOCKINSTASYNC_PHOTO_COUNT', $photo_count);
-                }
 
                 if (!$access_token || empty($access_token)){
                     $output .= $this->displayError($this->l('Invalid Access token'));
@@ -64,6 +59,12 @@
                 }
 
                 Tools::redirectAdmin(AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'));
+            }
+            if(Tools::isSubmit('submitblockinstasync_associations')){
+                echo "<pre>";
+                print_r($_POST);
+                die();
+                //TODO: Create a table in db to save this data in the install method and load it in backform
             }
             return $output.$this->displayForm();
         }
@@ -86,13 +87,6 @@
                         'size' => 20,
                         'required' => true
                     ),
-                    array(
-                        'type' => 'text',
-                        'label' => $this->l('Number of images to obtain'),
-                        'name' => 'BLOCKINSTASYNC_PHOTO_COUNT',
-                        'size' => 20,
-                        'required' => true
-                    )
                 ),
 
                 'submit' => array(
@@ -133,7 +127,6 @@
 
             // Load current value
             $helper->fields_value['BLOCKINSTASYNC_ACCESS_TOKEN'] = Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN');
-            $helper->fields_value['BLOCKINSTASYNC_PHOTO_COUNT'] = Configuration::get('BLOCKINSTASYNC_PHOTO_COUNT');
 
             return $helper->generateForm($fields_form);
         }
@@ -142,26 +135,73 @@
         protected function getIntagramMedia(){
             // use this instagram access token generator http://instagram.pixelunion.net/
             $access_token = Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN');
-            $photo_count = Configuration::get('BLOCKINSTASYNC_PHOTO_COUNT', 9);
 
             $json_link="https://api.instagram.com/v1/users/self/media/recent/?";
-            $json_link.="access_token={$access_token}&count={$photo_count}";
-            $json = file_get_contents($json_link);
-            $media_array = json_decode($json, true, 512, JSON_BIGINT_AS_STRING);
+            $json_link.="access_token={$access_token}";
+            $imagenes = array();
+            $imagenes = $this->getimages($json_link);
 
-            return $this->formatImagesFrom($media_array);
+            return $this->getImagesForm($imagenes);
         }
 
-        protected function formatImagesFrom($img_array){
-            // echo "<pre>";
-            // print_r($img_array);
-            // die();
-            $toret = '<div class="instagramimages panel">';
-            $toret .= '<div class="panel-heading">'.$this->l('List of images of ').$img_array['data'][0]['user']['full_name'].'</div>';
-            foreach ($img_array['data'] as $imgdata) {
-
-                $toret .= '<img src="'.$imgdata['images']['thumbnail']['url'].'" />';
+        protected function getImages($url){
+            $imagenes = array();
+            $json = file_get_contents($url);
+            $media_array = json_decode($json, true, 512, JSON_BIGINT_AS_STRING);
+            $next_url = $media_array['pagination']['next_url'];
+            foreach ($media_array['data'] as $img) {
+                $imagenes[] = $img;
             }
+            if(empty($media_array['pagination']['next_url'])){
+                return $imagenes;
+            }else{
+                return array_merge($imagenes, $this->getImages($next_url));
+            }
+
+        }
+
+        /*
+            This function creates a form that contain a img and allows to asociate it to a pretashop product
+            Param: $img_array -> array of images
+            Returns: a html of a form width the images to print in a getContent function
+        */
+        protected function getImagesForm($img_array){
+
+            $sql = "SELECT p.id_product, pl.name, p.reference
+                    FROM `"._DB_PREFIX_."product` p
+                    LEFT JOIN `"._DB_PREFIX_."product_lang` pl ON(p.id_product = pl.id_product)
+                    WHERE p.active = 1";
+            $products = Db::getInstance()->executeS($sql);
+
+            $toret = '<div class="instagramimages panel">';
+            $toret .= '<div class="panel-heading">'.$this->l('List of images').'</div>';
+            $toret .= '<form method="post" action="" >';
+            foreach ($img_array as $imgdata) {
+                if($imgdata['type'] == 'image'){
+                    $toret .= '<div class="formimageline panel">';
+                    $toret .= '<div class="row">';
+                    $toret .= '<div class="col-xs-6">';
+                    $toret .= '<input type="hidden" name="id_image[]" value="'.$imgdata['id'].'"/>';
+                    $toret .= '<img src="'.$imgdata['images']['thumbnail']['url'].'" />';
+                    $toret .= '</div><div class="col-xs-6">';
+                    $toret .= '<select name="product_ids[]">';
+                    $toret .= '<option value=""> - </option>';
+                    foreach($products as $p){
+                        $toret .= '<option value="'.$p['id_product'].'">'.$p['reference'].' - '.$p['name'].'</option>';
+                    }
+                    $toret .= '</select>';
+                    $toret .= '</div></div>';
+                    // $toret .= '<pre>';
+                    // $toret .= print_r($imgdata, true);
+                    // $toret.= "</pre>";
+
+                    $toret .= '</div>';
+                }
+            }
+            $toret .= '<button type="submit" value="1" id="configuration_form_submit_btn" name="submitblockinstasync_associations" class="btn btn-default pull-right">
+							<i class="process-icon-save"></i> '.$this->l('Guardar').'
+						</button>';
+            $toret .= '</form>';
             $toret .= '</div>';
 
             return $toret;

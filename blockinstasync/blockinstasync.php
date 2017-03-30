@@ -46,8 +46,10 @@
         {
             $output = null;
 
-            $output .= $this->getIntagramMedia();
-
+            //$output .= $this->getIntagramMedia();
+            // echo "<pre>";
+            // print_r($_POST);
+            // die();
             if (Tools::isSubmit('submit'.$this->name)){
                 $access_token = Tools::getValue('BLOCKINSTASYNC_ACCESS_TOKEN');
 
@@ -58,6 +60,10 @@
                     $output .= $this->displayConfirmation($this->l('Settings updated'));
                 }
 
+                if(Tools::isSubmit('BLOCKINSTASYNC_DOSYNC') && !empty(Tools::getValue('BLOCKINSTASYNC_DOSYNC'))){
+                    $this->syncInstagramMedia();
+                }
+
                 Tools::redirectAdmin(AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'));
             }
             if(Tools::isSubmit('submitblockinstasync_associations')){
@@ -66,6 +72,8 @@
                 die();
                 //TODO: Create a table in db to save this data in the install method and load it in backform
             }
+
+
             return $output.$this->displayForm();
         }
 
@@ -73,27 +81,10 @@
             // Get default language
             $default_lang = (int)Configuration::get('PS_LANG_DEFAULT');
 
-            // Init Fields form array
-            $fields_form[0]['form'] = array(
-                'legend' => array(
-                    'title' => $this->l('Settings'),
-                ),
-                'input' => array(
-                    array(
-                        'type' => 'text',
-                        'label' => $this->l('Your instagram access token'),
-                        'description' => $this->l('You can get it here: http://instagram.pixelunion.net/'),
-                        'name' => 'BLOCKINSTASYNC_ACCESS_TOKEN',
-                        'size' => 20,
-                        'required' => true
-                    ),
-                ),
+            //Init the forms
+            $fields_form[] = $this->initTokenForm();
+            $fields_form[] = $this->initSyncForm();
 
-                'submit' => array(
-                    'title' => $this->l('Save'),
-                    'class' => 'btn btn-default pull-right'
-                )
-            );
 
             $helper = new HelperForm();
 
@@ -128,11 +119,86 @@
             // Load current value
             $helper->fields_value['BLOCKINSTASYNC_ACCESS_TOKEN'] = Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN');
 
-            return $helper->generateForm($fields_form);
+            return $helper->generateForm($fields_form) . $this->getImagesForm();
+        }
+
+        protected function initTokenForm(){
+            // Init Fields form array
+            $fields_form = array();
+            $fields_form['form'] = array(
+                'legend' => array(
+                    'title' => $this->l('Configurando token instagram'),
+                ),
+                'input' => array(
+                    array(
+                        'type' => 'text',
+                        'label' => $this->l('Your instagram access token'),
+                        'description' => $this->l('You can get it here: http://instagram.pixelunion.net/'),
+                        'name' => 'BLOCKINSTASYNC_ACCESS_TOKEN',
+                        'size' => 20,
+                        'required' => true
+                    ),
+                ),
+
+                'submit' => array(
+                    'title' => $this->l('Guardar'),
+                    'class' => 'btn btn-default pull-right'
+                )
+            );
+            return $fields_form;
+        }
+
+        protected function initSyncForm(){
+            // Init Fields form array
+            $fields_form = array();
+            $fields_form['form'] = array(
+                'legend' => array(
+                    'title' => $this->l('Sincronizar imagenes desde instagram'),
+                ),
+                // 'input' => array(
+                //     array(
+                //         'type' => 'hidden',
+                //         'value' => 1
+                //     ),
+                // ),
+
+                'submit' => array(
+                    'title' => $this->l('Sincronizar'),
+                    'name' => 'BLOCKINSTASYNC_DOSYNC',
+                    'class' => 'btn btn-default pull-right'
+                )
+            );
+
+            return $fields_form;
+        }
+
+        protected function initRelForm(){
+            // Init Fields form array
+            $fields_form = array();
+            $fields_form['form'] = array(
+                'legend' => array(
+                    'title' => $this->l('Sincronizar imagenes desde instagram'),
+                ),
+                // 'input' => array(
+                //     array(
+                //         'type' => 'hidden',
+                //         'value' => 1
+                //     ),
+                // ),
+
+                'submit' => array(
+                    'title' => $this->l('Sincronizar'),
+                    'name' => 'BLOCKINSTASYNC_DOSYNC',
+                    'class' => 'btn btn-default pull-right'
+                )
+            );
+
+            return $fields_form;
         }
 
 
-        protected function getIntagramMedia(){
+
+        protected function syncInstagramMedia(){
             // use this instagram access token generator http://instagram.pixelunion.net/
             $access_token = Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN');
 
@@ -141,7 +207,43 @@
             $imagenes = array();
             $imagenes = $this->getimages($json_link);
 
-            return $this->getImagesForm($imagenes);
+            foreach($imagenes as $img){
+
+                $id = $img['id'];
+                $link = $img['link'];
+                $username = $img['user']['full_name'];
+                $latitude = $img['location']['latitude'];
+                $longitude = $img['location']['longitude'];
+                $location_name = $img['location']['name'];
+
+                $insert = 'INSERT INTO `'._DB_PREFIX_.'instagramsync_images`
+                            VALUES(
+                                0,
+                                "' . $id . '",
+                                "' . $link . '",
+                                "' . $username . '",
+                                "' . $latitude . '",
+                                "' . $longitude . '",
+                                "' . $location_name . '"
+                            )';
+                Db::getInstance()->execute($insert);
+
+                $img_dir = __DIR__.'/images/'. $id;
+
+                if(!file_exists($img_dir)){
+                    mkdir($img_dir, 0755, true);
+                }
+                //Download standard
+                $standard_resolution = file_get_contents($img['images']['standard_resolution']['url']);
+                file_put_contents($img_dir.'/standard_resolution.jpg', $standard_resolution);
+                //Download low_resolution
+                $low_resolution = file_get_contents($img['images']['low_resolution']['url']);
+                file_put_contents($img_dir.'/low_resolution.jpg', $low_resolution);
+                //Download thumbnail
+                $thumbnail = file_get_contents($img['images']['thumbnail']['url']);
+                file_put_contents($img_dir.'/thumbnail.jpg', $thumbnail);
+            }
+
         }
 
         protected function getImages($url){
@@ -165,7 +267,9 @@
             Param: $img_array -> array of images
             Returns: a html of a form width the images to print in a getContent function
         */
-        protected function getImagesForm($img_array){
+        protected function getImagesForm(){
+            $sql = "SELECT * FROM `"._DB_PREFIX_."instagramsync_images`";
+            $imagenes = Db::getInstance()->executeS($sql);
 
             $sql = "SELECT p.id_product, pl.name, p.reference
                     FROM `"._DB_PREFIX_."product` p
@@ -176,27 +280,29 @@
             $toret = '<div class="instagramimages panel">';
             $toret .= '<div class="panel-heading">'.$this->l('List of images').'</div>';
             $toret .= '<form method="post" action="" >';
-            foreach ($img_array as $imgdata) {
-                if($imgdata['type'] == 'image'){
-                    $toret .= '<div class="formimageline panel">';
-                    $toret .= '<div class="row">';
-                    $toret .= '<div class="col-xs-6">';
-                    $toret .= '<input type="hidden" name="id_image[]" value="'.$imgdata['id'].'"/>';
-                    $toret .= '<img src="'.$imgdata['images']['thumbnail']['url'].'" />';
-                    $toret .= '</div><div class="col-xs-6">';
-                    $toret .= '<select name="product_ids[]">';
-                    $toret .= '<option value=""> - </option>';
-                    foreach($products as $p){
-                        $toret .= '<option value="'.$p['id_product'].'">'.$p['reference'].' - '.$p['name'].'</option>';
-                    }
-                    $toret .= '</select>';
-                    $toret .= '</div></div>';
-                    // $toret .= '<pre>';
-                    // $toret .= print_r($imgdata, true);
-                    // $toret.= "</pre>";
+            foreach ($imagenes as $imagen) {
 
-                    $toret .= '</div>';
+                $toret .= '<div class="formimageline panel">';
+                $toret .= '<div class="row">';
+                $toret .= '<div class="col-xs-4">';
+                $toret .= '<input type="hidden" name="id_image[]" value="'.$imagen['instagramsync_images_id'].'"/>';
+                $toret .= '<img src="'._MODULE_DIR_.$this->name."/images/".$imagen['instagram_id']."/thumbnail.jpg".'" />';
+                $toret .= '</div><div class="col-xs-6">';
+                $toret .= '<select name="product_ids[]">';
+                $toret .= '<option value=""> - </option>';
+                foreach($products as $p){
+                    $toret .= '<option value="'.$p['id_product'].'">'.$p['reference'].' - '.$p['name'].'</option>';
                 }
+                $toret .= '</select>';
+                $toret .= '</div><div class="col-xs-2">';
+                $toret .= '<label for="active_'.$imagen['instagramsync_images_id'].'">'.$this->l('Mostrar').'</label><input type="checkbox" name="active_'.$imagen['instagramsync_images_id'].'" id="active_'.$imagen['instagramsync_images_id'].'" />';
+                $toret .= '</div>';
+                $toret .= '</div>';
+                // $toret .= '<pre>';
+                // $toret .= print_r($imagen, true);
+                // $toret.= "</pre>";
+
+                $toret .= '</div>';
             }
             $toret .= '<button type="submit" value="1" id="configuration_form_submit_btn" name="submitblockinstasync_associations" class="btn btn-default pull-right">
 							<i class="process-icon-save"></i> '.$this->l('Guardar').'

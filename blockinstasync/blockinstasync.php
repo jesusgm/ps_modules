@@ -54,7 +54,8 @@
         }
         public function hookInstagramsync(){
             $this->context->smarty->assign(array(
-                'images' => array('1', '2')
+                'images' => InstagramImage::getInstagramImages(),
+                'img_base_path' => _MODULE_DIR_.$this->name."/images/",
             ));
 
             return $this->display(__FILE__, 'blockinstagramsync.tpl');

@@ -47,6 +47,30 @@
                     WHERE id_instagramsync_images = " . $imagen['instagramsync_images_id'];
             return Db::getInstance()->executeS($sql);
         }
+
+        public static function getInstagramImages(){
+            $select = "SELECT *
+                        FROM `"._DB_PREFIX_."instagramsync_images` ii
+                        WHERE ii.shown = 1 ";
+            $images = Db::getInstance()->executeS($select);
+            if(!empty($images)){
+                foreach ($images as &$image) {
+                    $select ="SELECT *
+                            FROM `"._DB_PREFIX_."instagramsync_image_product` ip
+                            LEFT JOIN `"._DB_PREFIX_."products` p ON(p.id_product = ip.id_product)
+                            LEFT JOIN `"._DB_PREFIX_."product_lang` p ON(pl.id_product = p.id_product AMD pl.id_lang = ".Context::getContext()->language->id.")
+                            WHERE ip.id_instagramsync_images = " . $image['instagramsync_images_id'];
+                    $products = Db::getInstance()->executeS($select);
+                    if(!empty($products)){
+                        foreach ($products as $product) {
+                            $image['products'][] = $product;
+                        }
+                    }                        
+                }
+            }
+
+            return $images;
+        }
     }
 
  ?>

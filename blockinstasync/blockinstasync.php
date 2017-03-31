@@ -3,6 +3,9 @@
     if (!defined('_PS_VERSION_'))
         exit;
 
+    require_once _PS_MODULE_DIR_ . "blockinstasync/classes/InstagramImage.php";
+
+
     class BlockInstaSync extends Module{
         public function __construct(){
             $this->name = 'blockinstasync';
@@ -20,6 +23,7 @@
 
             $this->confirmUninstall = $this->l('Are you sure you want to uninstall?');
 
+
             if (!Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN'))
                 $this->warning = $this->l('No access token provided. You can get it here http://instagram.pixelunion.net/');
         }
@@ -29,8 +33,11 @@
             if (Shop::isFeatureActive())
                 Shop::setContext(Shop::CONTEXT_ALL);
 
-            if (!parent::install() || !$this->registerHook('leftColumn') || !$this->registerHook('header') || !Configuration::updateValue('BLOCKINSTASYNC_ACCESS_TOKEN', ''))
-                return false;
+            if (!parent::install()
+                || !$this->registerHook('header')
+                || !$this->registerHook('instagramsync')
+                || !Configuration::updateValue('BLOCKINSTASYNC_ACCESS_TOKEN', ''))
+                    return false;
 
             return true;
         }
@@ -40,6 +47,17 @@
                 return false;
 
             return true;
+        }
+
+        public function hookHeader(){
+
+        }
+        public function hookInstagramsync(){
+            $this->context->smarty->assign(array(
+                'images' => array('1', '2')
+            ));
+
+            return $this->display(__FILE__, 'blockinstagramsync.tpl');
         }
 
         public function getContent()
@@ -67,9 +85,34 @@
                 Tools::redirectAdmin(AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'));
             }
             if(Tools::isSubmit('submitblockinstasync_associations')){
-                echo "<pre>";
-                print_r($_POST);
-                die();
+                //Delete associations
+                $truncate ="TRUNCATE TABLE `"._DB_PREFIX_."instagramsync_image_product`";
+                Db::getInstance()->execute($truncate);
+
+                //Asociate the products and the images
+                foreach (Tools::getValue('product_ids') as $id_image => $products) {
+                    foreach ($products as $id_product) {
+                        $insert = "INSERT INTO `"._DB_PREFIX_."instagramsync_image_product`
+                                    VALUES(
+                                        0,
+                                        ".$id_image.",
+                                        ".$id_product."
+                                    )";
+
+                        // echo $insert . "<br/>";
+                        Db::getInstance()->execute($insert);
+                    }
+                }
+
+                //Set the shown field
+                $update = "UPDATE `"._DB_PREFIX_."instagramsync_images` SET shown = 0";
+                Db::getInstance()->execute($update);
+                foreach (Tools::getValue('active') as $id_image => $products) {
+                    $update = "UPDATE `"._DB_PREFIX_."instagramsync_images`
+                                SET shown = 1
+                                WHERE instagramsync_images_id = " . $id_image;
+                    Db::getInstance()->execute($update);
+                }
                 //TODO: Create a table in db to save this data in the install method and load it in backform
             }
 
@@ -208,25 +251,44 @@
             $imagenes = $this->getimages($json_link);
 
             foreach($imagenes as $img){
-
                 $id = $img['id'];
                 $link = $img['link'];
+                $caption = $img['caption']['text'];
                 $username = $img['user']['full_name'];
                 $latitude = $img['location']['latitude'];
                 $longitude = $img['location']['longitude'];
                 $location_name = $img['location']['name'];
+                $likes = $img['likes']['count'];
 
-                $insert = 'INSERT INTO `'._DB_PREFIX_.'instagramsync_images`
-                            VALUES(
-                                0,
-                                "' . $id . '",
-                                "' . $link . '",
-                                "' . $username . '",
-                                "' . $latitude . '",
-                                "' . $longitude . '",
-                                "' . $location_name . '"
-                            )';
-                Db::getInstance()->execute($insert);
+                $ins_img = new InstagramImage(InstagramImage::getIdByInstagramId($id));
+                if(empty($ins_img->shown)){
+                    $ins_img->shown = 0;    //sync new images hidden
+                }
+                $ins_img->caption = $caption;
+                $ins_img->instagram_id = $id;
+                $ins_img->instagram_link = $link;
+                $ins_img->instagram_user_name = $username;
+                $ins_img->latitude = $latitude;
+                $ins_img->longitude = $longitude;
+                $ins_img->likes = $likes;
+
+                $ins_img->save();
+
+
+                // $insert = 'INSERT INTO `'._DB_PREFIX_.'instagramsync_images`
+                //             VALUES(
+                //                 0,
+                //                 0,
+                //                 "' . $caption . '",
+                //                 "' . $id . '",
+                //                 "' . $link . '",
+                //                 "' . $username . '",
+                //                 "' . $latitude . '",
+                //                 "' . $longitude . '",
+                //                 "' . $location_name . '"
+                //                 "' . $likes . '",
+                //             )';
+                // Db::getInstance()->execute($insert);
 
                 $img_dir = __DIR__.'/images/'. $id;
 
@@ -234,14 +296,20 @@
                     mkdir($img_dir, 0755, true);
                 }
                 //Download standard
-                $standard_resolution = file_get_contents($img['images']['standard_resolution']['url']);
-                file_put_contents($img_dir.'/standard_resolution.jpg', $standard_resolution);
+                if(!file_exists($img_dir.'/standard_resolution.jpg')){
+                    $standard_resolution = file_get_contents($img['images']['standard_resolution']['url']);
+                    file_put_contents($img_dir.'/standard_resolution.jpg', $standard_resolution);
+                }
                 //Download low_resolution
-                $low_resolution = file_get_contents($img['images']['low_resolution']['url']);
-                file_put_contents($img_dir.'/low_resolution.jpg', $low_resolution);
+                // if(!file_exists($img_dir.'/low_resolution.jpg')){
+                    // $low_resolution = file_get_contents($img['images']['low_resolution']['url']);
+                    // file_put_contents($img_dir.'/low_resolution.jpg', $low_resolution);
+                // }
                 //Download thumbnail
-                $thumbnail = file_get_contents($img['images']['thumbnail']['url']);
-                file_put_contents($img_dir.'/thumbnail.jpg', $thumbnail);
+                if(!file_exists($img_dir.'/thumbnail.jpg')){
+                    $thumbnail = file_get_contents($img['images']['thumbnail']['url']);
+                    file_put_contents($img_dir.'/thumbnail.jpg', $thumbnail);
+                }
             }
 
         }
@@ -273,44 +341,18 @@
 
             $sql = "SELECT p.id_product, pl.name, p.reference
                     FROM `"._DB_PREFIX_."product` p
-                    LEFT JOIN `"._DB_PREFIX_."product_lang` pl ON(p.id_product = pl.id_product)
+                    LEFT JOIN `"._DB_PREFIX_."product_lang` pl ON(p.id_product = pl.id_product AND pl.id_lang = ".$this->context->language->id.")
                     WHERE p.active = 1";
             $products = Db::getInstance()->executeS($sql);
 
-            $toret = '<div class="instagramimages panel">';
-            $toret .= '<div class="panel-heading">'.$this->l('List of images').'</div>';
-            $toret .= '<form method="post" action="" >';
-            foreach ($imagenes as $imagen) {
+            $this->smarty->assign(array(
+                'products' => $products,
+                'imagenes' => $imagenes,
+                'img_base_path' => _MODULE_DIR_.$this->name."/images/",
 
-                $toret .= '<div class="formimageline panel">';
-                $toret .= '<div class="row">';
-                $toret .= '<div class="col-xs-4">';
-                $toret .= '<input type="hidden" name="id_image[]" value="'.$imagen['instagramsync_images_id'].'"/>';
-                $toret .= '<img src="'._MODULE_DIR_.$this->name."/images/".$imagen['instagram_id']."/thumbnail.jpg".'" />';
-                $toret .= '</div><div class="col-xs-6">';
-                $toret .= '<select name="product_ids[]">';
-                $toret .= '<option value=""> - </option>';
-                foreach($products as $p){
-                    $toret .= '<option value="'.$p['id_product'].'">'.$p['reference'].' - '.$p['name'].'</option>';
-                }
-                $toret .= '</select>';
-                $toret .= '</div><div class="col-xs-2">';
-                $toret .= '<label for="active_'.$imagen['instagramsync_images_id'].'">'.$this->l('Mostrar').'</label><input type="checkbox" name="active_'.$imagen['instagramsync_images_id'].'" id="active_'.$imagen['instagramsync_images_id'].'" />';
-                $toret .= '</div>';
-                $toret .= '</div>';
-                // $toret .= '<pre>';
-                // $toret .= print_r($imagen, true);
-                // $toret.= "</pre>";
+            ));
 
-                $toret .= '</div>';
-            }
-            $toret .= '<button type="submit" value="1" id="configuration_form_submit_btn" name="submitblockinstasync_associations" class="btn btn-default pull-right">
-							<i class="process-icon-save"></i> '.$this->l('Guardar').'
-						</button>';
-            $toret .= '</form>';
-            $toret .= '</div>';
-
-            return $toret;
+            return $this->display(__FILE__, 'views/templates/admin/imagesform.tpl');
         }
 
     }

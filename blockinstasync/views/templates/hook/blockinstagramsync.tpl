@@ -54,38 +54,21 @@
                                                 src="{$link->getImageLink($product.link_rewrite, $product.cover, 'cart_default')|escape:'html':'UTF-8'}"
                                                 title="{$product.name}"
                                                 alt="{$product.description_short}"/>
-                                            {if (!$PS_CATALOG_MODE && ((isset($product.show_price) && $product.show_price) || (isset($product.available_for_order) && $product.available_for_order)))}
-                    							<div class="content_price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
-                    									<span itemprop="price" class="price product-price">
-                    										{hook h="displayProductPriceBlock" product=$product type="before_price"}
-                    										{if !$priceDisplay}{convertPrice price=$product.price}{else}{convertPrice price=$product.price_tax_exc}{/if}
-                    									</span>
-                    									<meta itemprop="priceCurrency" content="{$currency->iso_code}" />
-                    									{if $product.price_without_reduction > 0 && isset($product.specific_prices) && $product.specific_prices && isset($product.specific_prices.reduction) && $product.specific_prices.reduction > 0}
-                    										{hook h="displayProductPriceBlock" product=$product type="old_price"}
-                    										<span class="old-price product-price">
-                    											{displayWtPrice p=$product.price_without_reduction}
-                    										</span>
-                    										{if $product.specific_prices.reduction_type == 'percentage'}
-                    											<span class="price-percent-reduction">-{$product.specific_prices.reduction * 100}%</span>
-                    										{/if}
-                    									{/if}
-                    									{if $PS_STOCK_MANAGEMENT && isset($product.available_for_order) && $product.available_for_order && !isset($restricted_country_mode)}
-                    										<span class="unvisible">
-                    											{if ($product.allow_oosp || $product.quantity > 0)}
-                    													<link itemprop="availability" href="https://schema.org/InStock" />{if $product.quantity <= 0}{if $product.allow_oosp}{if isset($product.available_later) && $product.available_later}{$product.available_later}{else}{l s='In Stock'}{/if}{/if}{else}{if isset($product.available_now) && $product.available_now}{$product.available_now}{else}{l s='In Stock'}{/if}{/if}
-                    											{elseif (isset($product.quantity_all_versions) && $product.quantity_all_versions > 0)}
-                    													<link itemprop="availability" href="https://schema.org/LimitedAvailability" />{l s='Product available with different options'}
-
-                    											{else}
-                    													<link itemprop="availability" href="https://schema.org/OutOfStock" />{l s='Out of stock'}
-                    											{/if}
-                    										</span>
-                    									{/if}
-                    									{hook h="displayProductPriceBlock" product=$product type="price"}
-                    									{hook h="displayProductPriceBlock" product=$product type="unit_price"}
-                    							</div>
-                    						{/if}
+                                            <div class="content_price" itemprop="offers" itemscope itemtype="https://schema.org/Offer">
+                                                <span itemprop="price" class="price product-price">
+                                                    {convertPrice price=$product.price}
+                                                </span>
+                                                <meta itemprop="priceCurrency" content="{$currency->iso_code}" />
+                                            </div>
+                                            <a class="button ajax_add_to_cart_button btn btn-default"
+                                                href="{$link->getPageLink('cart', true, NULL, $smarty.capture.default, false)|escape:'html':'UTF-8'}"
+                                                rel="nofollow"
+                                                title="{l s='Add to cart'}"
+                                                data-id-product-attribute="{$product.id_product_attribute|intval}"
+                                                data-id-product="{$product.id_product|intval}"
+                                                data-minimal_quantity="{if isset($product.product_attribute_minimal_quantity) && $product.product_attribute_minimal_quantity >= 1}{$product.product_attribute_minimal_quantity|intval}{else}{$product.minimal_quantity|intval}{/if}">
+								                    <span>{l s='Add to cart'}</span>
+            								</a>
                                         </div>
                                         {/foreach}
                                     {/if}

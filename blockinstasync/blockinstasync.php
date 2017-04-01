@@ -254,6 +254,8 @@
         protected function syncInstagramMedia(){
             // use this instagram access token generator http://instagram.pixelunion.net/
             $access_token = Configuration::get('BLOCKINSTASYNC_ACCESS_TOKEN');
+            if(empty($access_token))
+                return false;
 
             $json_link="https://api.instagram.com/v1/users/self/media/recent/?";
             $json_link.="access_token={$access_token}";
@@ -327,18 +329,20 @@
 
         }
 
+        /*
+            Funcion that gets all instagram images recursively from the API url
+        */
         protected function getImages($url){
             $imagenes = array();
             $json = file_get_contents($url);
             $media_array = json_decode($json, true, 512, JSON_BIGINT_AS_STRING);
-            $next_url = $media_array['pagination']['next_url'];
             foreach ($media_array['data'] as $img) {
                 $imagenes[] = $img;
             }
-            if(empty($media_array['pagination']['next_url'])){
+            if(!isset($media_array['pagination']['next_url']) || empty($media_array['pagination']['next_url'])){
                 return $imagenes;
             }else{
-                return array_merge($imagenes, $this->getImages($next_url));
+                return array_merge($imagenes, $this->getImages(empty($media_array['pagination']['next_url'])));
             }
 
         }

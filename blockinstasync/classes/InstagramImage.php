@@ -60,7 +60,7 @@
             $images = Db::getInstance()->executeS($select);
             if(!empty($images)){
                 foreach ($images as &$image) {
-                    $select ="SELECT pl.*, i.id_image as cover
+                    $select ="SELECT pl.*, i.id_image as cover, p.*
                             FROM `"._DB_PREFIX_."instagramsync_image_product` ip
                             LEFT JOIN `"._DB_PREFIX_."product` p ON(p.id_product = ip.id_product)
                             LEFT JOIN `"._DB_PREFIX_."product_lang` pl ON(pl.id_product = p.id_product AND pl.id_lang = ".Context::getContext()->language->id.")

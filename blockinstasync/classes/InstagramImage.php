@@ -42,10 +42,15 @@
         }
 
         public static function getImageProducts($id_image){
+            $toret = array();
             $sql = "SELECT id_product
                     FROM `"._DB_PREFIX_."instagramsync_image_product`
-                    WHERE id_instagramsync_images = " . $imagen['instagramsync_images_id'];
-            return Db::getInstance()->executeS($sql);
+                    WHERE id_instagramsync_images = " . $id_image;
+            $products = Db::getInstance()->executeS($sql);
+            foreach ($products as $p) {
+                $toret[] = $p['id_product'];
+            }
+            return $toret;
         }
 
         public static function getInstagramImages(){
@@ -55,17 +60,18 @@
             $images = Db::getInstance()->executeS($select);
             if(!empty($images)){
                 foreach ($images as &$image) {
-                    $select ="SELECT *
+                    $select ="SELECT pl.*, i.id_image as cover
                             FROM `"._DB_PREFIX_."instagramsync_image_product` ip
-                            LEFT JOIN `"._DB_PREFIX_."products` p ON(p.id_product = ip.id_product)
-                            LEFT JOIN `"._DB_PREFIX_."product_lang` p ON(pl.id_product = p.id_product AMD pl.id_lang = ".Context::getContext()->language->id.")
+                            LEFT JOIN `"._DB_PREFIX_."product` p ON(p.id_product = ip.id_product)
+                            LEFT JOIN `"._DB_PREFIX_."product_lang` pl ON(pl.id_product = p.id_product AND pl.id_lang = ".Context::getContext()->language->id.")
+                            LEFT JOIN `"._DB_PREFIX_."image` i ON(p.id_product = i.id_product AND i.cover = 1)
                             WHERE ip.id_instagramsync_images = " . $image['instagramsync_images_id'];
                     $products = Db::getInstance()->executeS($select);
                     if(!empty($products)){
                         foreach ($products as $product) {
                             $image['products'][] = $product;
                         }
-                    }                        
+                    }
                 }
             }
 

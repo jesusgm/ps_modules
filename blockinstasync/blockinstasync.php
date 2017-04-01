@@ -50,7 +50,16 @@
         }
 
         public function hookHeader(){
+            //Load Style
+            $this->context->controller->addCSS(($this->_path).'views/css/blockinstagramsync.css', 'all');
+            $this->context->controller->addCSS(($this->_path).'views/css/owl.carousel.min.css', 'all');
+            $this->context->controller->addCSS(($this->_path).'views/css/owl.theme.default.css', 'all');
 
+            //Load JS
+            $this->context->controller->addJS(($this->_path).'views/js/blockinstagramsync.js');
+            // $this->context->controller->addJS(($this->_path).'views/js/masonry.pkgd.min.js');
+            $this->context->controller->addJS(($this->_path).'views/js/isotope.pkgd.min.js');
+            $this->context->controller->addJS(($this->_path).'views/js/owl.carousel.min.js');
         }
         public function hookInstagramsync(){
             $this->context->smarty->assign(array(
@@ -104,7 +113,7 @@
                         Db::getInstance()->execute($insert);
                     }
                 }
-
+                // die();
                 //Set the shown field
                 $update = "UPDATE `"._DB_PREFIX_."instagramsync_images` SET shown = 0";
                 Db::getInstance()->execute($update);
@@ -297,17 +306,20 @@
                     mkdir($img_dir, 0755, true);
                 }
                 //Download standard
-                if(!file_exists($img_dir.'/standard_resolution.jpg')){
+                if(!file_exists($img_dir.'/standard_resolution.jpg') || filesize($img_dir.'/standard_resolution.jpg') == 0){
+                    error_log("Descargo standard_resolution de " . $img_dir);
                     $standard_resolution = file_get_contents($img['images']['standard_resolution']['url']);
                     file_put_contents($img_dir.'/standard_resolution.jpg', $standard_resolution);
                 }
-                //Download low_resolution
-                // if(!file_exists($img_dir.'/low_resolution.jpg')){
-                    // $low_resolution = file_get_contents($img['images']['low_resolution']['url']);
-                    // file_put_contents($img_dir.'/low_resolution.jpg', $low_resolution);
-                // }
+                // Download low_resolution
+                if(!file_exists($img_dir.'/low_resolution.jpg') || filesize($img_dir.'/low_resolution.jpg') == 0){
+                    error_log("Descargo low_resolution de " . $img_dir);
+                    $low_resolution = file_get_contents($img['images']['low_resolution']['url']);
+                    file_put_contents($img_dir.'/low_resolution.jpg', $low_resolution);
+                }
                 //Download thumbnail
-                if(!file_exists($img_dir.'/thumbnail.jpg')){
+                if(!file_exists($img_dir.'/thumbnail.jpg') || filesize($img_dir.'/thumbnail.jpg') == 0){
+                    error_log("Descargo thumbnail de " . $img_dir);
                     $thumbnail = file_get_contents($img['images']['thumbnail']['url']);
                     file_put_contents($img_dir.'/thumbnail.jpg', $thumbnail);
                 }

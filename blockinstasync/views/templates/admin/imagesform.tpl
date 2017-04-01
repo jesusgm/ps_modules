@@ -42,12 +42,12 @@
                         <p>{$imagen.likes} {l s='Likes' mod='blockinstasync'}</p>
                     </div>
                     <div class="col-xs-5">
+                        {assign var="selected_prods" value=InstagramImage::getImageProducts($imagen.instagramsync_images_id)}
                         <select name="product_ids[{$imagen.instagramsync_images_id}][]" multiple="multiple">
-                        <option value=""> - </option>
-                        {assign var=selected_prods value=InstagramImage::getImageProducts($imagen.instagramsync_images_id)}
-                        {foreach from=$products item=p}
-                            <option value="{$p.id_product}.'" {if in_array($p.id_product, $selected_prods)}selected="selected"{/if} > {$p.reference} - {$p.name} </option>
-                        {/foreach}
+                            <option value=""> - </option>
+                            {foreach from=$products item=p}
+                                <option value="{$p.id_product}" {if in_array($p.id_product, $selected_prods)}selected="selected"{/if} > {$p.reference} - {$p.name} </option>
+                            {/foreach}
                         </select>
                     </div>
                     <div class="col-xs-1">

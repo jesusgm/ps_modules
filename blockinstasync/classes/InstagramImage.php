@@ -12,6 +12,7 @@
         public $longitude;
         public $location_name;
         public $likes;
+        public $created_time;
         /**
          * @see ObjectModel::$definition
          */
@@ -31,8 +32,16 @@
                 'longitude' =>              array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 255),
                 'location_name' =>          array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 255),
                 'likes' =>                  array('type' => self::TYPE_STRING, 'validate' => 'isGenericName', 'size' => 255),
+                'created_time' =>                  array('type' => self::TYPE_INT, 'validate' => 'isGenericName'),
             ),
         );
+
+        public function save(){
+            if(empty($this->created_time)){
+                $this->created_time = time();
+            }
+            parent::save();
+        }
 
         public static function getIdByInstagramId($instagram_id){
             $select = "SELECT instagramsync_images_id
@@ -56,7 +65,8 @@
         public static function getInstagramImages(){
             $select = "SELECT *
                         FROM `"._DB_PREFIX_."instagramsync_images` ii
-                        WHERE ii.shown = 1 ";
+                        WHERE ii.shown = 1
+                        ORDER BY created_time ASC";
             $images = Db::getInstance()->executeS($select);
             if(!empty($images)){
                 foreach ($images as &$image) {

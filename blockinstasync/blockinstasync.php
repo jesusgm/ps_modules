@@ -49,6 +49,14 @@
             return true;
         }
 
+        protected function createTables(){
+
+        }
+        protected function deleteTables(){
+            $delete = "DROP TABLE `"._DB_PREFIX_ . "_instagramsync_images`, `"._DB_PREFIX_."_instagramsync_image_product`;";
+            Db::getInstance()->execute($delete);
+        }
+
         public function hookHeader(){
             //Load Style
             $this->context->controller->addCSS(($this->_path).'views/css/blockinstagramsync.css', 'all');
@@ -61,6 +69,7 @@
             $this->context->controller->addJS(($this->_path).'views/js/isotope.pkgd.min.js');
             $this->context->controller->addJS(($this->_path).'views/js/owl.carousel.min.js');
         }
+
         public function hookInstagramsync(){
             $this->context->smarty->assign(array(
                 'images' => InstagramImage::getInstagramImages(),
@@ -89,7 +98,16 @@
                 }
 
                 if(Tools::isSubmit('BLOCKINSTASYNC_DOSYNC') && !empty(Tools::getValue('BLOCKINSTASYNC_DOSYNC'))){
+                    $delete = Tools::getValue('BLOCKINSTASYNC_DELETECURRENT');
+                    if(!empty($delete)){
+                        $truncate = "TRUNCATE TABLE `"._DB_PREFIX_."instagramsync_images`";
+                        Db::getInstance()->execute($truncate);
+                        $truncate = "TRUNCATE TABLE `"._DB_PREFIX_."instagramsync_image_product`";
+                        Db::getInstance()->execute($truncate);
+                    }
+
                     $this->syncInstagramMedia();
+
                 }
 
                 Tools::redirectAdmin(AdminController::$currentIndex.'&configure='.$this->name.'&token='.Tools::getAdminTokenLite('AdminModules'));
@@ -186,7 +204,7 @@
                     array(
                         'type' => 'text',
                         'label' => $this->l('Your instagram access token'),
-                        'description' => $this->l('You can get it here: http://instagram.pixelunion.net/'),
+                        'hint' => $this->l('You can get it here: http://instagram.pixelunion.net/'),
                         'name' => 'BLOCKINSTASYNC_ACCESS_TOKEN',
                         'size' => 20,
                         'required' => true
@@ -208,36 +226,36 @@
                 'legend' => array(
                     'title' => $this->l('Sincronizar imagenes desde instagram'),
                 ),
-                // 'input' => array(
-                //     array(
-                //         'type' => 'hidden',
-                //         'value' => 1
-                //     ),
-                // ),
-
-                'submit' => array(
-                    'title' => $this->l('Sincronizar'),
-                    'name' => 'BLOCKINSTASYNC_DOSYNC',
-                    'class' => 'btn btn-default pull-right'
-                )
-            );
-
-            return $fields_form;
-        }
-
-        protected function initRelForm(){
-            // Init Fields form array
-            $fields_form = array();
-            $fields_form['form'] = array(
-                'legend' => array(
-                    'title' => $this->l('Sincronizar imagenes desde instagram'),
+                'input' => array(
+                    // array(
+                    //     'type' => 'text',
+                    //     'label' => $this->l('Tag'),
+                    //     'hint' => $this->l('Introducir tag para recuperar las imagenes con ese tag. Dejar vacío para recuperar las imágenes del usuario'),
+                    //     'name' => 'BLOCKINSTASYNC_TAG',
+                    //     'size' => 20,
+                    //     'required' => false
+                    // ),
+                    array(
+                        'type' => 'switch',
+                        'label' => $this->l('Delete current images'),
+                        'name' => 'BLOCKINSTASYNC_DELETECURRENT',
+                        'desc' => $this->l('Delete all images before import new.'),
+                        'is_bool' => true,
+                        'values' => array(
+                            array(
+                                'id' => 'active_on',
+                                'value' => 1,
+                                'label' => $this->l('Enabled')
+                            ),
+                            array(
+                                'id' => 'active_off',
+                                'value' => 0,
+                                'label' => $this->l('Disabled')
+                                )
+                            ),
+                        ),
                 ),
-                // 'input' => array(
-                //     array(
-                //         'type' => 'hidden',
-                //         'value' => 1
-                //     ),
-                // ),
+
 
                 'submit' => array(
                     'title' => $this->l('Sincronizar'),
@@ -248,6 +266,30 @@
 
             return $fields_form;
         }
+
+        // protected function initRelForm(){
+        //     // Init Fields form array
+        //     $fields_form = array();
+        //     $fields_form['form'] = array(
+        //         'legend' => array(
+        //             'title' => $this->l('Sincronizar imagenes desde instagram'),
+        //         ),
+        //         // 'input' => array(
+        //         //     array(
+        //         //         'type' => 'hidden',
+        //         //         'value' => 1
+        //         //     ),
+        //         // ),
+        //
+        //         'submit' => array(
+        //             'title' => $this->l('Sincronizar'),
+        //             'name' => 'BLOCKINSTASYNC_DOSYNC',
+        //             'class' => 'btn btn-default pull-right'
+        //         )
+        //     );
+        //
+        //     return $fields_form;
+        // }
 
 
 
@@ -336,13 +378,16 @@
             $imagenes = array();
             $json = file_get_contents($url);
             $media_array = json_decode($json, true, 512, JSON_BIGINT_AS_STRING);
+            // echo "<pre>";
+            // print_r($media_array['data']);
+            // die();
             foreach ($media_array['data'] as $img) {
                 $imagenes[] = $img;
             }
             if(!isset($media_array['pagination']['next_url']) || empty($media_array['pagination']['next_url'])){
                 return $imagenes;
             }else{
-                return array_merge($imagenes, $this->getImages(empty($media_array['pagination']['next_url'])));
+                return array_merge($imagenes, $this->getImages($media_array['pagination']['next_url']));
             }
 
         }
@@ -353,7 +398,7 @@
             Returns: a html of a form width the images to print in a getContent function
         */
         protected function getImagesForm(){
-            $sql = "SELECT * FROM `"._DB_PREFIX_."instagramsync_images`";
+            $sql = "SELECT * FROM `"._DB_PREFIX_."instagramsync_images` ORDER BY created_time ASC";
             $imagenes = Db::getInstance()->executeS($sql);
 
             $sql = "SELECT p.id_product, pl.name, p.reference

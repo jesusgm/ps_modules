@@ -1,2 +1,4 @@
-*.x:ml
+*.xml
 blockinstasync/images/*.jpg
+*/config*.xml
+*/config_es.xml

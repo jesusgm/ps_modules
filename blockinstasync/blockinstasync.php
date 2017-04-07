@@ -36,25 +36,76 @@
             if (!parent::install()
                 || !$this->registerHook('header')
                 || !$this->registerHook('instagramsync')
-                || !Configuration::updateValue('BLOCKINSTASYNC_ACCESS_TOKEN', ''))
+                || !Configuration::updateValue('BLOCKINSTASYNC_ACCESS_TOKEN', '')
+                || !$this->createTables()
+            )
                     return false;
 
             return true;
         }
 
         public function uninstall(){
-            if (!parent::uninstall() || !Configuration::deleteByName('BLOCKINSTASYNC_ACCESS_TOKEN'))
+            if (!parent::uninstall() ||
+                !Configuration::deleteByName('BLOCKINSTASYNC_ACCESS_TOKEN') ||
+                !$this->deleteTables()
+            )
                 return false;
 
+            $this->deleteImages();
             return true;
         }
 
         protected function createTables(){
+            $sql ="CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "instagramsync_images` (
+              `instagramsync_images_id` int(11) NOT NULL AUTO_INCREMENT,
+              `shown` tinyint(1) NOT NULL DEFAULT '1',
+              `caption` text CHARACTER SET utf8 COLLATE utf8_spanish_ci NOT NULL,
+              `instagram_id` varchar(255) NOT NULL,
+              `instagram_link` varchar(255) NOT NULL,
+              `instagram_user_name` varchar(255) NOT NULL,
+              `latitude` varchar(255) NOT NULL,
+              `longitude` varchar(255) NOT NULL,
+              `location_name` varchar(255) NOT NULL,
+              `likes` int(11) NOT NULL,
+              `created_time` int(11) NOT NULL,
+              PRIMARY KEY (`instagramsync_images_id`)
+            ) ENGINE=InnoDB AUTO_INCREMENT=84 DEFAULT CHARSET=latin1 COMMENT='Tabla para guardar info sobre las imagenes de instagram';
+
+            CREATE TABLE IF NOT EXISTS `" . _DB_PREFIX_ . "instagramsync_image_product` (
+              `id_is_image_product` int(11) NOT NULL AUTO_INCREMENT,
+              `id_instagramsync_images` int(11) NOT NULL,
+              `id_product` int(11) NOT NULL,
+              PRIMARY KEY (`id_is_image_product`),
+              KEY `id_instagramsync_images` (`id_instagramsync_images`,`id_product`)
+            ) ENGINE=InnoDB DEFAULT CHARSET=latin1 COMMENT='Tabla que relaciona imagenes de instagram con productos';";
+
+            return Db::getInstance()->query($sql);
 
         }
         protected function deleteTables(){
-            $delete = "DROP TABLE `"._DB_PREFIX_ . "_instagramsync_images`, `"._DB_PREFIX_."_instagramsync_image_product`;";
-            Db::getInstance()->execute($delete);
+            echo $delete = "DROP TABLE `"._DB_PREFIX_ . "instagramsync_images`, `"._DB_PREFIX_."instagramsync_image_product`;";
+            return Db::getInstance()->execute($delete);
+        }
+
+        protected function deleteImages(){
+
+            $dir = __DIR__."/images/";
+
+            // Open a known directory, and proceed to read its contents
+            if (is_dir($dir)) {
+                if ($dh = opendir($dir)) {
+                    while (($file = readdir($dh)) !== false) {
+                        //echo "filename: $file : filetype: " . filetype($dir . $file) . "<br/>";
+                        if($file != "." && $file != ".."){
+                            unlink($dir. $file . "/low_resolution.jpg");
+                            unlink($dir. $file . "/standard_resolution.jpg");
+                            unlink($dir. $file . "/thumbnail.jpg");
+                            rmdir($dir. $file);
+                        }
+                    }
+                    closedir($dh);
+                }
+            }
         }
 
         public function hookHeader(){
@@ -87,6 +138,24 @@
             // echo "<pre>";
             // print_r($_POST);
             // die();
+            $borrar_img_id = Tools::getValue('borrar_id');
+            $borrar_img_dir = Tools::getValue('borrar_dir');
+            if(!empty($borrar_img_id) && !empty($borrar_img_dir)){
+                //Eliminar la img de la bd
+                $delete ="DELETE FROM `"._DB_PREFIX_."instagramsync_images` WHERE instagramsync_images_id = " . $borrar_img_id;
+                Db::getInstance()->execute($delete);
+                $delete ="DELETE FROM `"._DB_PREFIX_."instagramsync_image_product` WHERE id_instagramsync_images = " . $borrar_img_id;
+                Db::getInstance()->execute($delete);
+
+                //Eliminar las img del sistema de ficheros
+                $dir = __DIR__."/images/".$borrar_img_dir;
+                unlink($dir . "/low_resolution.jpg");
+                unlink($dir . "/standard_resolution.jpg");
+                unlink($dir . "/thumbnail.jpg");
+                rmdir($dir);
+                Tools::redirectAdmin(AdminController::$currentIndex.'&configure='.$this->name.'&token='.$this->context->controller->token);
+            }
+
             if (Tools::isSubmit('submit'.$this->name)){
                 $access_token = Tools::getValue('BLOCKINSTASYNC_ACCESS_TOKEN');
 
@@ -411,7 +480,7 @@
                 'products' => $products,
                 'imagenes' => $imagenes,
                 'img_base_path' => _MODULE_DIR_.$this->name."/images/",
-
+                'current_url' => AdminController::$currentIndex.'&configure='.$this->name.'&token='.$this->context->controller->token
             ));
 
             return $this->display(__FILE__, 'views/templates/admin/imagesform.tpl');

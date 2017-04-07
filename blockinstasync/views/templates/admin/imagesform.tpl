@@ -58,6 +58,9 @@
                         <label for="active-{$imagen.instagramsync_images_id}">
                             {l s='Mostrar' mod='blockinstasync'}
                         </label>
+                        <a class="btn btn-default" onclick="return confirm('Estas seguro?')" href="{$current_url}&borrar_id={$imagen.instagramsync_images_id}&borrar_dir={$imagen.instagram_id}">
+                            {l s='Eliminar' mod='blockinstasync'}
+                        </a>
                     </div>
                 </div>
             </div>

@@ -116,8 +116,6 @@
 
             //Load JS
             $this->context->controller->addJS(($this->_path).'views/js/blockinstagramsync.js');
-            // $this->context->controller->addJS(($this->_path).'views/js/masonry.pkgd.min.js');
-            $this->context->controller->addJS(($this->_path).'views/js/isotope.pkgd.min.js');
             $this->context->controller->addJS(($this->_path).'views/js/owl.carousel.min.js');
         }
 
